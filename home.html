@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TasteTrove</title>
+    <link rel="website icon" type="png" href="./Logo2.png" />
+    <link rel="stylesheet" href="./homestyle.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="logo-container">
+        <img src="./Logo2.png" alt="Chef Hat Logo" class="logo-img" />
+        <div class="name-tagline">
+          <h1
+            class="logo-text"
+            style="
+              font-family: 'Times New Roman', Times, serif;
+              font-size: xx-large;
+            "
+          >
+            TasteTrove
+          </h1>
+          <h3>Find It,Cook It,Love It..</h3>
+        </div>
+      </div>
+      <div class="profile-container">
+        <button id="toggle-button" style="margin-left: 20px">
+          <svg
+            id="dark-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            height="24px"
+            viewBox="0 -960 960 960"
+            width="24px"
+          >
+            <path
+              d="M480-280q-83 0-141.5-58.5T280-480q0-83 58.5-141.5T480-680q83 0 141.5 58.5T680-480q0 83-58.5 141.5T480-280ZM200-440H40v-80h160v80Zm720 0H760v-80h160v80ZM440-760v-160h80v160h-80Zm0 720v-160h80v160h-80ZM256-650l-101-97 57-59 96 100-52 56Zm492 496-97-101 53-55 101 97-57 59Zm-98-550 97-101 59 57-100 96-56-52ZM154-212l101-97 55 53-97 101-59-57Z"
+            />
+          </svg>
+          <svg
+            id="light-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            height="24px"
+            viewBox="0 -960 960 960"
+            width="24px"
+            style="display: none"
+          >
+            <path
+              d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q14 0 27.5 1t26.5 3q-41 29-65.5 75.5T444-660q0 90 63 153t153 63q55 0 101-24.5t75-65.5q2 13 3 26.5t1 27.5q0 150-105 255T480-120Z"
+            />
+          </svg>
+        </button>
+        <div class="username-display" id="headerUsername">User</div>
+        <img
+          src="./Profile.jpg"
+          alt="Profile"
+          class="profile-img"
+          id="profileImg"
+        />
+        <div class="profile-dropdown" id="profileDropdown">
+          <div class="dropdown-username" id="username">Loading...</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" id="resetPasswordBtn">Reset Password</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" id="signoutBtn">Sign Out</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="search-container">
+      <div class="search-bar">
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Find It..."
+          id="searchInput"
+        />
+        <!-- Add Recipe Button -->
+        <button id="addRecipeButton" class="add-recipe-button">
+          Add Recipe
+        </button>
+      </div>
+    </div>
+
+    <div class="filter-container">
+      <button class="filter-button active" data-category="all">All</button>
+      <button class="filter-button" data-category="veg">Vegetarian</button>
+      <button class="filter-button" data-category="non-veg">
+        Non-Vegetarian
+      </button>
+      <button class="filter-button" data-category="sweets">Sweets</button>
+    </div>
+
+    <div class="grid-container" id="recipeGrid"></div>
+
+    <!-- getAllRecipes()  -->
+    <script type="module">
+      import { getAllRecipes } from "./firebase.js";
+
+      // Function to load recipes from Firebase
+      async function loadRecipes() {
+        const recipeGrid = document.getElementById("recipeGrid");
+        recipeGrid.innerHTML = ""; // Clear existing content
+
+        // Show loading indicator
+        const loadingDiv = document.createElement("div");
+        loadingDiv.className = "loading";
+        loadingDiv.textContent = "Loading recipes...";
+        recipeGrid.appendChild(loadingDiv);
+
+        try {
+          const result = await getAllRecipes();
+          console.log("Recipes Fetched :", result);
+
+          if (result.success) {
+            // Remove loading indicator
+            recipeGrid.removeChild(loadingDiv);
+
+            // Check if we have recipes
+            if (result.data.length === 0) {
+              const noRecipes = document.createElement("div");
+              noRecipes.className = "no-results";
+              noRecipes.textContent = "No recipes found.";
+              recipeGrid.appendChild(noRecipes);
+              return;
+            }
+
+            // Add recipe cards
+            result.data.forEach((recipe) => {
+              const card = document.createElement("div");
+              card.className = "recipe-card";
+              card.dataset.category = recipe.category || "uncategorized";
+
+              card.innerHTML = `
+          <img src="${recipe.imageUrl || "./Recipes/placeholder.jpg"}" alt="${
+                recipe.name
+              }" class="recipe-image" />
+          <div class="recipe-info">
+            <h2 class="recipe-title">${recipe.name}</h2>
+            <a href="./recipe-detail.html?id=${recipe.id}">
+              <button class="view-button">View</button>
+            </a>
+          </div>
+        `;
+
+              recipeGrid.appendChild(card);
+            });
+          } else {
+            throw new Error(result.error);
+          }
+        } catch (error) {
+          console.error("Error loading recipes:", error);
+          recipeGrid.innerHTML = `
+      <div class="no-results">
+        Error loading recipes. Please try again later.
+      </div>
+    `;
+        }
+      }
+
+      // Load recipes when page loads
+      document.addEventListener("DOMContentLoaded", loadRecipes);
+
+      // Combined filtering function for both search and categories
+      // -----------FILTER Functionality--------------
+      function filterRecipes() {
+        const searchInput = document.getElementById("searchInput");
+        const searchFilter = searchInput.value.toLowerCase();
+        const grid = document.getElementById("recipeGrid");
+        const cards = grid.getElementsByClassName("recipe-card");
+        const activeCategory = document.querySelector(".filter-button.active")
+          .dataset.category;
+        let resultsFound = false;
+
+        // Remove existing no-results message
+        const existingNoResults = grid.querySelector(".no-results");
+        if (existingNoResults) {
+          existingNoResults.remove();
+        }
+
+        for (let card of cards) {
+          const title = card.getElementsByClassName("recipe-title")[0];
+          const category = card.dataset.category;
+
+          const matchesSearch = title.textContent
+            .toLowerCase()
+            .includes(searchFilter);
+          const matchesCategory =
+            activeCategory === "all" || category === activeCategory;
+
+          card.style.display = matchesSearch && matchesCategory ? "" : "none";
+          if (matchesSearch && matchesCategory) resultsFound = true;
+        }
+
+        // Show no results message if no matches found
+        if (
+          !resultsFound &&
+          (searchFilter !== "" || activeCategory !== "all")
+        ) {
+          const noResults = document.createElement("div");
+          noResults.className = "no-results";
+          noResults.textContent = "No recipes found.";
+          grid.appendChild(noResults);
+        }
+      }
+
+      // Add search input event listener
+      document.getElementById("searchInput").addEventListener("keyup", filterRecipes);
+      // Add click handlers for filter buttons
+      document.querySelectorAll(".filter-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          // Remove active class from all buttons
+          document.querySelectorAll(".filter-button").forEach((btn) => {
+            btn.classList.remove("active");
+          });
+
+          // Add active class to clicked button
+          button.classList.add("active");
+
+          // Apply filters
+          filterRecipes();
+        });
+      });
+    </script>
+
+    <!-- Dark Mode Functionality -->
+    <script>
+      let darkmode = localStorage.getItem("darkmode");
+      const themeSwitch = document.getElementById("toggle-button");
+
+      // Function to enable dark mode
+      const enableDarkmode = () => {
+        document.body.classList.add("dark-mode"); // Add dark mode class
+        localStorage.setItem("darkmode", "active"); // Save preference
+        document.getElementById("light-icon").style.display = "none"; // Hide light icon
+        document.getElementById("dark-icon").style.display = "block"; // Show dark icon
+      };
+
+      // Function to disable dark mode
+      const disableDarkmode = () => {
+        document.body.classList.remove("dark-mode"); // Remove dark mode class
+        localStorage.setItem("darkmode", null); // Clear preference
+        document.getElementById("light-icon").style.display = "block"; // Show light icon
+        document.getElementById("dark-icon").style.display = "none"; // Hide dark icon
+      };
+
+      // Check for saved user preference, if any, on page load
+      if (darkmode === "active") {
+        enableDarkmode(); // Enable dark mode if preference is set
+      } else {
+        disableDarkmode(); // Otherwise, ensure light mode is active
+      }
+
+      // Add event listener for the theme switch button
+      themeSwitch.addEventListener("click", () => {
+        darkmode = localStorage.getItem("darkmode"); // Get current preference
+        darkmode !== "active" ? enableDarkmode() : disableDarkmode(); // Toggle mode
+      });
+    </script>
+
+    <!-- For Add recipe functionality -->
+    <script type="module">
+      import { getCurrentUser } from "./firebase.js";
+
+      // Add event listener to the "Add Recipe" button
+      document
+        .getElementById("addRecipeButton")
+        .addEventListener("click", async () => {
+          const user = await getCurrentUser();
+          if (user) {
+            // If user is logged in, redirect to AddRecipe.html
+            window.location.href = "AddRecipe.html";
+          } else {
+            // If user is not logged in, redirect to login.html
+            alert("You need to log in to add a recipe.");
+            window.location.href = "login.html";
+          }
+        });
+    </script>
+
+    <!-- For Profile Details -->
+    <script type="module">
+      // Import Firebase functions
+      import { getCurrentUser, getUserInfo, logoutUser } from "./firebase.js";
+      import {
+        getAuth,
+        sendPasswordResetEmail,
+      } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
+      // DOM elements
+      const profileImg = document.getElementById("profileImg");
+      const profileDropdown = document.getElementById("profileDropdown");
+      const usernameElement = document.getElementById("username");
+      const headerUsernameElement = document.getElementById("headerUsername");
+      const signoutBtn = document.getElementById("signoutBtn");
+      const resetPasswordBtn = document.getElementById("resetPasswordBtn");
+      const auth = getAuth();
+
+      loadUserInfo();
+
+      // Toggle dropdown when profile image is clicked
+      profileImg.addEventListener("click", function (e) {
+        e.stopPropagation();
+        profileDropdown.classList.toggle("show");
+
+        // Get and display current user info if dropdown is shown
+        if (profileDropdown.classList.contains("show")) {
+          loadUserInfo();
+        }
+      });
+
+      // Close dropdown when clicking elsewhere on the page
+      window.addEventListener("click", function () {
+        if (profileDropdown.classList.contains("show")) {
+          profileDropdown.classList.remove("show");
+        }
+      });
+
+      // Prevent dropdown from closing when clicked inside
+      profileDropdown.addEventListener("click", function (e) {
+        e.stopPropagation();
+      });
+
+      // Handle sign out
+      signoutBtn.addEventListener("click", async function () {
+        const result = await logoutUser();
+        if (result.success) {
+          // Redirect to login page after successful logout
+          window.location.href = "./login.html";
+        } else {
+          alert("Failed to sign out: " + result.error);
+        }
+      });
+
+      // Handle reset password
+      resetPasswordBtn.addEventListener("click", async function () {
+        try {
+          const user = await getCurrentUser();
+          if (user && user.email) {
+            await sendPasswordResetEmail(auth, user.email);
+            alert("Password reset email sent! Check your inbox.");
+            profileDropdown.classList.remove("show");
+          } else {
+            alert("You need to be logged in to reset your password.");
+          }
+        } catch (error) {
+          alert("Error sending password reset email: " + error.message);
+        }
+      });
+
+      // Load user information
+      async function loadUserInfo() {
+        try {
+          // Get current authenticated user
+          const user = await getCurrentUser();
+
+          if (user) {
+            // Get user info from Firestore
+            const userInfo = await getUserInfo(user.uid);
+
+            if (userInfo.success) {
+              // Display username in both places
+              usernameElement.textContent = userInfo.data.username;
+              headerUsernameElement.textContent = userInfo.data.username;
+            } else {
+              usernameElement.textContent = "User";
+              headerUsernameElement.textContent = "User";
+              console.error("Failed to get user info:", userInfo.error);
+            }
+          } else {
+            // User not logged in, redirect to login page
+            usernameElement.textContent = "Guest";
+            headerUsernameElement.textContent = "Guest";
+          }
+        } catch (error) {
+          console.error("Error loading user info:", error);
+          usernameElement.textContent = "Error";
+          headerUsernameElement.textContent = "Error";
+        }
+      }
+
+      // Check authentication status and load username when page loads
+      document.addEventListener("DOMContentLoaded", async function () {
+        loadUserInfo();
+      });
+    </script>
+  </body>
+</html>
